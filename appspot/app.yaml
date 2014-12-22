@@ -1,0 +1,44 @@
+application: enter_your_application_identifier_here
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+default_expiration: "10m"
+
+handlers:
+- url: /
+  static_files: index.htm
+  upload: index\.htm
+  expiration: "0s"
+  
+- url: /robots\.txt
+  static_files: robots.txt
+  upload: robots\.txt
+- url: /browserconfig\.xml
+  static_files: browserconfig.xml
+  upload: browserconfig\.xml
+
+- url: /img
+  static_dir: img
+- url: /favicon\.ico
+  static_files: img/favicon.ico
+  upload: img/favicon\.ico
+- url: /apple-touch-icon(?:-precomposed)?\.png
+  static_files: img/1024.png
+  upload: img/1024\.png
+- url: /apple-touch-icon-([0-9]+)x[0-9]+(?:-precomposed)?\.png
+  static_files: img/\1.png
+  upload: img/[0-9]+\.png
+
+- url: /plan\.appcache
+  static_files: plan.appcache
+  upload: plan\.appcache
+  mime_type: text/cache-manifest
+  expiration: "0s"
+
+- url: /([-a-z0-9]+)
+  static_files: plans/\1.htm
+  upload: plans/.*
+  expiration: "0s"
+- url: /([-a-zA-Z0-9]+)
+  script: tolowercase.application
