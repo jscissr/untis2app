@@ -25,6 +25,7 @@ if(!defined('NO_PREVIEW')){
 
 
 function convert_plan($file, $name){
+  $file = utf8_encode($file);
   //Extract main table
   $startstr = '<TABLE border="3" rules="all" cellpadding="1" cellspacing="1">';
   $startpos = strpos($file, $startstr);
