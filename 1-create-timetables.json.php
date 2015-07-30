@@ -1,43 +1,45 @@
 <?php
 
-//Enter the base directory URI (can be either a http url or a local path)
+//Enter the base directory URL (can be either a http url or a local path)
 //Note: Replace backslash \ with slash /.
-$base = 'path/to/export/dir/';
-//Enter code for the time period you want to download (is part of the url for the plan files)
+$base = '/path/to/export/dir/';
+
+//Enter code for the time period you want to download (is part of the url for the timetable files)
 $week = 'P1';
+
 
 $json = create_json($base, $week);
 
 header('Content-Type: text/plain');
 echo $json;
 
-file_put_contents('plans.json', $json);
+file_put_contents('timetables.json', $json);
 
 
 
-function create_json($base, $week){
-  $base = preg_replace('#[\\/][^\\/]*$#', '/', $base); //remove default.htm from $base
-  
+function create_json($base, $week) {
   $navbar = file_get_contents($base . 'frames/navbar.htm');
-  
-  $navbar = preg_replace('/[\r\n]+/', "\n", utf8_encode($navbar));
+  //$navbar = file_get_contents('navbar.htm');
 
-  //the directory structure has two levels of folders, this defines which comes first
+  $navbar = iconv('CP1252', 'UTF-8', $navbar);
+  $navbar = preg_replace('/[\r\n]+/', "\n", $navbar);
+
+  //the directory structure has two levels of folders, this specifies which comes first
   $top_dir_week = strpos($navbar, 'topDir = "w"') !== false;
 
   //TODO: This part is not complete. There are other lists like rooms or teachers, and each of them is optional.
-  $classes = read_JSON($navbar, 'classes');
-  $students = read_JSON($navbar, 'students');
-  $studtable = read_JSON($navbar, 'studtable');
-  if(!$classes || !$students || !$studtable){
+  $classes = read_JSON('classes', $navbar);
+  $students = read_JSON('students', $navbar);
+  $studtable = read_JSON('studtable', $navbar);
+  if (!$classes || !$students || !$studtable) {
     die("Did not find all arrays in navbar.htm. File content:\n\n\n" . $navbar);
   }
 
   $out = array();
 
-  foreach($classes as $i => $class){
+  foreach ($classes as $i => $class) {
     $filename = str_to_filename($class);
-    
+
     $src_file = str_pad($i + 1, 5, '0', STR_PAD_LEFT) . '.htm';
     $out[$i] = array(
       'name' => $class,
@@ -45,13 +47,14 @@ function create_json($base, $week){
       'file' => $filename);
   }
 
-  foreach($students as $i => $student){
+  foreach ($students as $i => $student) {
     $filename = str_to_filename($student);
-    
-    if($studtable[$i] == 0){
-      die('classless student detected'); //I don't know if this is possible
+
+    if ($studtable[$i] <= 0) {
+      continue;
+      //student without class, currently not supported
     }
-    
+
     $src_file = str_pad($i + 1, 5, '0', STR_PAD_LEFT) . '.htm';
     $out[$studtable[$i] - 1]['childs'][] = array(
       'name' => $student,
@@ -59,44 +62,55 @@ function create_json($base, $week){
       'file' => $filename);
   }
 
+  /*
+  //Sort list by name
+  function sort_name($a, $b) {
+    return strncmp($a['name'], $b['name'], 1);
+  }
+  usort($out, 'sort_name');*/
+
   return json_encode($out, JSON_PRETTY_PRINT);
+
 }
 
 
 //read a variable containing JSON data from the JavaScript in navbar.htm
-function read_JSON($navbar, $name){
+function read_JSON($name, $navbar) {
   $startstr = 'var ' . $name . ' = ';
   $startpos = strpos($navbar, $startstr);
-  if($startpos === false){
+  if ($startpos === false) {
     return false;
   }
   $startpos += strlen($startstr);
   $endpos = strpos($navbar, ";\n", $startpos);
   $json = substr($navbar, $startpos, $endpos - $startpos);
-  
+
   return json_decode($json, true);
 }
 
 //create unique ascii-only filenames
-function str_to_filename($str){
+function str_to_filename($str) {
   static $used_filenames = array();
   $filename = trim(
     preg_replace('/[^a-z0-9]+/', '-',
       strtolower(
         strtr(
-          strtr(utf8_decode($str), 'ÄÉäéöûü¢•™≤≥π∫¿¡¬√≈«»… ÀÃÕŒœ–—“”‘’◊ÿŸ⁄€›‡·‚„ÂÁËÈÍÎÏÌÓÔÒÚÛÙı¯˘˙˚˝ˇ',
-                                   'EfSZszYcYa231oAAAAACEEEEIIIIDNOOOOxOUUUYaaaaaceeeeiiiidnooooouuuyy'),
-          array('ô' => 'TM', 'å' => 'OE', '∆' => 'AE', 'ú' => 'oe', 'Ê' => 'ae', 'ƒ' => 'AE', '÷' => 'OE', '‹' => 'UE', '‰' => 'ae', 'ˆ' => 'oe', '¸' => 'ue', 'ﬁ' => 'TH', '˛' => 'th', 'ﬂ' => 'ss')
+          iconv('UTF-8', 'CP1252', strtr(
+            $str,
+            array('‚Ñ¢' => 'TM', '≈í' => 'OE', '√Ü' => 'AE', '≈ì' => 'oe', '√¶' => 'ae', '√Ñ' => 'AE', '√ñ' => 'OE', '√ú' => 'UE', '√§' => 'ae', '√∂' => 'oe', '√º' => 'ue', '√û' => 'TH', '√æ' => 'th', '√ü' => 'ss')
+          )),
+          iconv('UTF-8', 'CP1252', '‚Ç¨∆í≈†≈Ω≈°≈æ≈∏¬¢¬•¬™¬≤¬≥¬π¬∫√Ä√Å√Ç√É√Ö√á√à√â√ä√ã√å√ç√é√è√ê√ë√í√ì√î√ï√ó√ò√ô√ö√õ√ù√†√°√¢√£√•√ß√®√©√™√´√¨√≠√Æ√Ø√∞√±√≤√≥√¥√µ√∏√π√∫√ª√Ω√ø'),
+                                   'EfSZszYcYa231oAAAAACEEEEIIIIDNOOOOxOUUUYaaaaaceeeeiiiidnooooouuuyy'
         )
       )
     )
   , '-');
-  
+
   $nr = 0;
-  while(in_array($filename . ($nr == 0 ? '' : $nr), $used_filenames)){
+  while (in_array($filename . ($nr == 0 ? '' : $nr), $used_filenames)) {
     $nr++;
   }
-  if($nr != 0){
+  if ($nr != 0) {
     $filename .= $nr;
   }
   array_push($used_filenames, $filename);
